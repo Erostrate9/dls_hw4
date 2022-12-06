@@ -4,7 +4,8 @@ import os
 import pickle
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
 from needle import backend_ndarray as nd
-
+import struct
+import gzip
 
 class Transform:
     def __call__(self, x):
@@ -26,7 +27,11 @@ class RandomFlipHorizontal(Transform):
         """
         flip_img = np.random.rand() < self.p
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if flip_img:
+          # axis = W i.e. 1
+          return np.flip(img, 1)
+        else:
+          return img
         ### END YOUR SOLUTION
 
 
@@ -46,7 +51,11 @@ class RandomCrop(Transform):
             low=-self.padding, high=self.padding + 1, size=2
         )
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        h,w,c = img.shape
+        padded_img = np.pad(img, ((self.padding, self.padding),(self.padding, self.padding),(0,0)), 'constant', constant_values=0)
+        shift_x += self.padding
+        shift_y += self.padding
+        return padded_img[shift_x: shift_x+h, shift_y: shift_y+w,:]
         ### END YOUR SOLUTION
 
 
@@ -106,13 +115,19 @@ class DataLoader:
 
     def __iter__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if (self.shuffle):
+          indices = np.arange(len(self.dataset))
+          indices = np.random.permutation(indices)
+          self.ordering = np.array_split(indices, range(self.batch_size,
+            len(self.dataset), self.batch_size))
+        self.it = iter(self.ordering)
         ### END YOUR SOLUTION
         return self
 
     def __next__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        indices = next(self.it)
+        return tuple(Tensor.make_const(x, requires_grad=False) for x in self.dataset[indices])
         ### END YOUR SOLUTION
 
 
@@ -124,18 +139,66 @@ class MNISTDataset(Dataset):
         transforms: Optional[List] = None,
     ):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.root = (image_filename, label_filename)
+        self.transforms = transforms
+        self.data, self.targets = self.parse_mnist(image_filename, label_filename)
         ### END YOUR SOLUTION
 
     def __getitem__(self, index) -> object:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        trans_img = self.data[index]
+        if self.transforms is not None:
+          for transform in self.transforms:
+            trans_img = transform(trans_img)
+        return (trans_img, self.targets[index])
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.targets)
         ### END YOUR SOLUTION
+    @staticmethod
+    def parse_mnist(image_filename, label_filename):
+      """ Read an images and labels file in MNIST format.  See this page:
+      http://yann.lecun.com/exdb/mnist/ for a description of the file format.
+
+      Args:
+          image_filename (str): name of gzipped images file in MNIST format
+          label_filename (str): name of gzipped labels file in MNIST format
+
+      Returns:
+          Tuple (X,y):
+              X (numpy.ndarray[np.float32]): 4D numpy array containing the loaded
+                  data.  The dimensionality of the data should be
+                  (num_examples x 28 x 28 x 1) Values should be of type np.float32, and the data
+                  should be normalized to have a minimum value of 0.0 and a
+                  maximum value of 1.0.
+
+              y (numpy.ndarray[dypte=np.int8]): 1D numpy array containing the
+                  labels of the examples.  Values should be of type np.int8 and
+                  for MNIST will contain the values 0-9.
+      """
+      ### BEGIN YOUR CODE
+      with gzip.open(label_filename,'rb') as f_lb:
+        # All the integers in the files are stored in the MSB first (high endian) format.
+        # Users of Intel processors and other low-endian machines must flip the bytes of the header.
+        # > donotes big-endian(aka high-endian); I denotes a 32-bit integer
+        # read the first two 32-bit intergers describing data type and number of labels.
+        # as we've already know that the offset of first label is 8, it means that
+        # the first 8 bytes are magic number and number of labels.
+        magic_lb, num_lb = struct.unpack('>II', f_lb.read(4*2))
+        # read the rest of data (num_lb labels)
+        labels = np.frombuffer(f_lb.read(), dtype = np.uint8)
+      with gzip.open(image_filename, 'rb') as f_img:
+        # the difference of image data compared with label data is that there're four 32-bit integers
+        # describing info (datatype, number, number of rows, number of cols), and every
+        # 8-bit unsigned byte is not a label but a pixel.
+        magic_img, num_img, num_rows, num_cols = struct.unpack('>IIII', f_img.read(4*4))
+        images = np.frombuffer(f_img.read(),dtype=np.ubyte).reshape(num_img, num_rows*num_cols).reshape((-1, 28, 28, 1))
+        # normalize the images
+        norm_images = images.astype(np.float32) / (np.amax(images).astype(np.float32)-np.amin(images).astype(np.float32))
+      return norm_images, labels
+      ### END YOUR CODE
 
 
 class CIFAR10Dataset(Dataset):

@@ -8,6 +8,7 @@ find_package(Python COMPONENTS Development Interpreter REQUIRED)
 include_directories(${Python_INCLUDE_DIRS})
 
 # find pybind
+set(Python3_FIND_VIRTUALENV "ONLY")
 execute_process(COMMAND python3 -m pybind11 --cmakedir
   RESULT_VARIABLE __pybind_exit_code
   OUTPUT_VARIABLE __pybind_path
@@ -84,4 +85,3 @@ if(CUDA_FOUND)
 )
 
 endif()
-

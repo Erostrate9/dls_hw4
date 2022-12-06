@@ -36,6 +36,8 @@ class CPUDevice(Device):
 
     def full(self, shape, fill_value, dtype="float32"):
         return numpy.full(shape, fill_value, dtype=dtype)
+    def zeros(self, *shape, dtype="float32"):
+        return numpy.zeros(shape, dtype=dtype)
 
 
 def cpu():

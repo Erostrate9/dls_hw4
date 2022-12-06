@@ -246,7 +246,11 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # using new_shape to compute the corresponding strides
+        strides = tuple( prod(new_shape[i+1:]) for i in range(len(new_shape)))
+        return NDArray.make(
+            new_shape, strides=strides, device=self.device, handle=self._handle, offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -271,7 +275,14 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert len(new_axes) == len(self.shape)
+        shape = tuple(self.shape[i] for i in new_axes)
+        # find the corresponding strides of new idx
+        strides = tuple(self.strides[i] for i in new_axes)
+
+        return NDArray.make(
+            shape, strides=strides, device=self.device, handle=self._handle, offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -294,7 +305,18 @@ class NDArray:
             point to the same memory as the original array.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert len(new_shape)>=len(self.shape), "Cannot broadcast to a shape smaller than the original"
+        strides = [0]*(len(new_shape)-len(self.shape))+list(self.shape)
+        for i in range(len(new_shape)-len(self.shape),len(new_shape)):
+          if(strides[i]!=new_shape[i] and strides[i]!=1):
+              raise ValueError("new_shape's elements must be the \
+                                                    same as the original shape, except for dimensions in the self where \
+                                                    the size = 1")
+          else:
+            strides[i] = 0 if strides[i]==1 else prod(strides[i+1:])
+        return NDArray.make(
+            new_shape, strides=tuple(strides), device=self.device, handle=self._handle, offset=self._offset
+        )
         ### END YOUR SOLUTION
 
     ### Get and set elements
@@ -361,7 +383,18 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # idxs: ndim * slice(start, stop, step)
+        offset = 0
+        shape = [0] * len(idxs)
+        strides = [0] * len(idxs)
+        for i, idx in enumerate(idxs):
+            offset += idxs[i].start * self.strides[i]
+            shape[i] = math.ceil((min(idx.stop, self.shape[i]) - idx.start) / idx.step)
+            strides[i] = self.strides[i] * idx.step
+
+        return NDArray.make(
+            tuple(shape), strides=tuple(strides), device=self.device, handle=self._handle,
+            offset=offset)
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs, other):
@@ -631,6 +664,8 @@ def tanh(a):
 def flip(a, axes):
     return a.flip(axes)
 
+def max(a, axis=None, keepdims=False):
+    return a.max(axis=axis, keepdims=keepdims)
 
 def summation(a, axis=None, keepdims=False):
     return a.sum(axis=axis, keepdims=keepdims)

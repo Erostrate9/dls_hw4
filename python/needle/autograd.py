@@ -315,7 +315,10 @@ class Tensor(Value):
 
     def __pow__(self, other):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if isinstance(other, Tensor):
+            return needle.ops.PowerScalar()(self, other)
+        else:
+            return needle.ops.PowerScalar(other)(self)
         ### END YOUR SOLUTION
 
     def __sub__(self, other):
@@ -377,7 +380,17 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for idx_i, i in enumerate(reverse_topo_order):
+      if i.requires_grad:
+        i.grad = sum_node_list(node_to_output_grads_list[i])
+        if not i.is_leaf():
+          grads = i.op.gradient(i.grad, i)
+          for k_idx, k in enumerate(i.inputs):
+            padj_k2i = grads if isinstance(grads, Value) else grads[k_idx]
+            if k in node_to_output_grads_list:
+              node_to_output_grads_list[k].append(padj_k2i)
+            else:
+              node_to_output_grads_list[k] = [padj_k2i]
     ### END YOUR SOLUTION
 
 
@@ -390,14 +403,23 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    topo_order = []
+    visited = set()
+    for node in node_list:
+      topo_sort_dfs(node, visited, topo_order)
+    return topo_order
     ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited.add(node)
+
+    for adjacent in node.inputs:
+        if (adjacent not in visited):
+            topo_sort_dfs(adjacent, visited, topo_order)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
