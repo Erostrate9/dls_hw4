@@ -564,8 +564,75 @@ void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
   /// END YOUR SOLUTION
 }
 
+__global__ void StackKernel(scalar_t **arr, size_t size, size_t total_size,
+                            scalar_t *out) {
+    size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+    if(gid  < total_size){
+        size_t no = gid / size;
+        size_t offset = gid % size;
+        out[gid] = arr[no][offset];
+    }
+}
+
+void Stack(const std::vector<CudaArray *> arr, size_t size, CudaArray* out){
+//    size is the product of arr[0].shape
+    CudaDims dim = CudaOneDim(out->size);
+    size_t n = arr.size();
+    scalar_t **host_ptr = (scalar_t **)std::malloc(n * sizeof(arr[0]->ptr));
+    if (host_ptr == 0)
+        throw std::bad_alloc();
+    for (size_t i = 0; i < n; ++i ){
+        host_ptr[i] = arr[i]->ptr;
+    }
+    scalar_t **arr_ptr = nullptr;
+    cudaError_t error = cudaMalloc(&arr_ptr, n * sizeof(arr[0] -> ptr));
+    if (error!= cudaSuccess)
+        throw std::runtime_error(cudaGetErrorString(error));
+    error = cudaMemcpy(arr_ptr, host_ptr, n*sizeof(arr[0]-> ptr),
+                        cudaMemcpyHostToDevice);
+    if (error!= cudaSuccess)
+        throw std::runtime_error(cudaGetErrorString(error));
+
+    StackKernel<<<dim.grid, dim.block>>>(arr_ptr, size, out->size, out->ptr);
+}
+
+__global__ void SplitKernel(const scalar_t *A, size_t size, size_t total_size,
+                            scalar_t **out) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < total_size) {
+    int no = gid / size;
+    int offset = gid % size;
+    out[no][offset] = A[gid];
+  }
+}
+
+void Split(const CudaArray &A, uint32_t size, std::vector<CudaArray *> out) {
+  CudaDims dim = CudaOneDim(A.size);
+  size_t n = out.size();
+
+  // copy array of pointers to device
+  scalar_t **host_ptr = (scalar_t **)std::malloc(n * sizeof(out[0]->ptr));
+  if (host_ptr == 0)
+    throw std::bad_alloc();
+  for (int i = 0; i < n; ++i) {
+    host_ptr[i] = out[i]->ptr;
+  }
+
+  scalar_t **arr_ptr = nullptr;
+  cudaError_t error = cudaMalloc(&arr_ptr, n * sizeof(out[0]->ptr));
+  if (error != cudaSuccess)
+    throw std::runtime_error(cudaGetErrorString(error));
+  error = cudaMemcpy(arr_ptr, host_ptr, n * sizeof(out[0]->ptr),
+                     cudaMemcpyHostToDevice);
+  if (error != cudaSuccess)
+    throw std::runtime_error(cudaGetErrorString(error));
+
+  SplitKernel<<<dim.grid, dim.block>>>(A.ptr, size, A.size, arr_ptr);
+}
+
 }  // namespace cuda
 }  // namespace needle
+
 
 PYBIND11_MODULE(ndarray_backend_cuda, m) {
   namespace py = pybind11;
@@ -633,4 +700,7 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+
+  m.def("stack", Stack);
+  m.def("split", Split);
 }
