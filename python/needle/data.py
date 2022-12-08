@@ -115,19 +115,28 @@ class DataLoader:
 
     def __iter__(self):
         ### BEGIN YOUR SOLUTION
-        if (self.shuffle):
-          indices = np.arange(len(self.dataset))
-          indices = np.random.permutation(indices)
-          self.ordering = np.array_split(indices, range(self.batch_size,
-            len(self.dataset), self.batch_size))
-        self.it = iter(self.ordering)
+        self.batch_idx = 0
         ### END YOUR SOLUTION
         return self
 
     def __next__(self):
         ### BEGIN YOUR SOLUTION
-        indices = next(self.it)
-        return tuple(Tensor.make_const(x, requires_grad=False) for x in self.dataset[indices])
+        if self.batch_idx == 0 and self.shuffle:
+            arr = np.arange(len(self.dataset))
+            np.random.shuffle(arr)
+            self.ordering = np.array_split(arr,
+                                           range(self.batch_size, len(self.dataset), self.batch_size))
+        if self.batch_idx == len(self.ordering):
+            raise StopIteration
+        # batch = self.dataset[self.ordering[self.batch_idx]]
+        batch = [self.dataset[i] for i in self.ordering[self.batch_idx]]
+
+        result = [list() for i in range(len(batch[0]))]
+        for b in batch:
+            for i, data in enumerate(b):
+                result[i].append(data[0] if len(data.shape) == 1 and data.shape[0] == 1 else data)
+        self.batch_idx += 1
+        return tuple([Tensor(np.array(l), require_grad=False) for l in result])
         ### END YOUR SOLUTION
 
 
@@ -219,8 +228,31 @@ class CIFAR10Dataset(Dataset):
         y - numpy array of labels
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        def unpickle(file):
+            import pickle
+            # print("filename:", file)
+            with open(file, 'rb') as fo:
+                dic = pickle.load(fo, encoding='bytes')
+            return dic
+
+        # Assume that CIFAR-10 dataset has been downloaded.
+        if base_folder is None:
+            assert os.path.isdir("./data/cifar-10-batches-py")
+            base_folder = "./data/cifar-10-batches-py"
+        if train:
+            dic = unpickle(os.path.join(base_folder, "data_batch_1"))
+            for i in range(2,6):
+                d = unpickle(os.path.join(base_folder, "data_batch_" + str(i)))
+                dic[b"data"] = np.concatenate((dic[b"data"], d[b"data"]), axis=0)
+                dic[b"labels"] += d[b"labels"]
+        else:
+            dic = unpickle(os.path.join(base_folder,"test_batch"))
+        self.X = (dic[b"data"]/255).astype("float32")
+        self.y = np.array(dic[b"labels"])
+        assert self.X.shape[0] == len(self.y)
+        self.transforms = transforms
         ### END YOUR SOLUTION
+
 
     def __getitem__(self, index) -> object:
         """
@@ -228,7 +260,12 @@ class CIFAR10Dataset(Dataset):
         Image should be of shape (3, 32, 32)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert self.X[index].size == 3*32*32
+        X_idx = self.X[index].reshape((3, 32, 32))
+        if self.transforms is not None:
+            for transform in self.transforms:
+                X_idx = transform(X_idx)
+        return X_idx, self.y[index]
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
@@ -236,7 +273,7 @@ class CIFAR10Dataset(Dataset):
         Returns the total number of examples in the dataset
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.y)
         ### END YOUR SOLUTION
 
 
