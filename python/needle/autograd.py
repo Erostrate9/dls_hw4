@@ -360,6 +360,9 @@ class Tensor(Value):
     def transpose(self, axes=None):
         return needle.ops.Transpose(axes)(self)
 
+    def split(self, axis = 0):
+        return needle.ops.Split(axis)(self)
+
     __radd__ = __add__
     __rmul__ = __mul__
     __rmatmul__ = __matmul__
@@ -414,6 +417,8 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
+    if node in visited:
+        return
     visited.add(node)
 
     for adjacent in node.inputs:

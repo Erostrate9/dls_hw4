@@ -417,8 +417,30 @@ for (size_t i=0; i<out->size; ++i){
   /// END YOUR SOLUTION
 }
 
+void Stack(const std::vector<AlignedArray *> arr, uint32_t size, AlignedArray* out){
+//    size is the product of arr[0].shape
+    size_t n = arr.size();
+    for (size_t i=0, cnt_out = 0; i < n; ++i){
+        for (size_t j=0; j < size; ++j){
+            out->ptr[cnt_out++] = arr[i]->ptr[j];
+        }
+    }
+}
+
+void Split(const AlignedArray &A, uint32_t size, std::vector<AlignedArray *> out){
+//    size is the product of arr[0].shape
+    size_t n = out.size();
+    for (size_t i=0, cnt_out = 0; i < n; ++i){
+        for (size_t j=0; j < size; ++j){
+            out[i]->ptr[j] = A.ptr[cnt_out++];
+        }
+    }
+}
+
 }  // namespace cpu
 }  // namespace needle
+
+
 
 PYBIND11_MODULE(ndarray_backend_cpu, m) {
   namespace py = pybind11;
@@ -477,4 +499,7 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+
+  m.def("stack", Stack);
+  m.def("split", Split);
 }

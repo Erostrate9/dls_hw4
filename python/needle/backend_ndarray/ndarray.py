@@ -5,6 +5,7 @@ import numpy as np
 from . import ndarray_backend_numpy
 from . import ndarray_backend_cpu
 
+
 # math.prod not in Python 3.7
 def prod(x):
     return reduce(operator.mul, x, 1)
@@ -202,8 +203,8 @@ class NDArray:
         """Return true if array is compact in memory and internal size equals product
         of the shape dimensions"""
         return (
-            self._strides == self.compact_strides(self._shape)
-            and prod(self.shape) == self._handle.size
+                self._strides == self.compact_strides(self._shape)
+                and prod(self.shape) == self._handle.size
         )
 
     def compact(self):
@@ -247,7 +248,7 @@ class NDArray:
 
         ### BEGIN YOUR SOLUTION
         # using new_shape to compute the corresponding strides
-        strides = tuple( prod(new_shape[i+1:]) for i in range(len(new_shape)))
+        strides = tuple(prod(new_shape[i + 1:]) for i in range(len(new_shape)))
         return NDArray.make(
             new_shape, strides=strides, device=self.device, handle=self._handle, offset=self._offset
         )
@@ -285,6 +286,24 @@ class NDArray:
         )
         ### END YOUR SOLUTION
 
+    def transpose(self, new_axes=None):
+        """
+        Permute the dimensions of the array.  If axes is not None, then
+        reshapes the array to match the given axes. If axes is None, then reshapes the array
+        to match the reversed axes.
+        Args:
+            axes (tuple, optional): new axes to permute the dimensions."""
+
+        if new_axes is None:
+            new_axes = tuple(reversed(range(len(self.shape))))
+            if len(new_axes) <= 1:
+                return self
+            else:
+                return self.permute(new_axes)
+        else:
+            assert len(new_axes) == len(self.shape)
+            return self.permute(new_axes)
+
     def broadcast_to(self, new_shape):
         """
         Broadcast an array to a new shape.  new_shape's elements must be the
@@ -305,15 +324,15 @@ class NDArray:
             point to the same memory as the original array.
         """
         ### BEGIN YOUR SOLUTION
-        assert len(new_shape)>=len(self.shape), "Cannot broadcast to a shape smaller than the original"
-        strides = [0]*(len(new_shape)-len(self.shape))+list(self.shape)
-        for i in range(len(new_shape)-len(self.shape),len(new_shape)):
-          if(strides[i]!=new_shape[i] and strides[i]!=1):
-              raise ValueError("new_shape's elements must be the \
+        assert len(new_shape) >= len(self.shape), "Cannot broadcast to a shape smaller than the original"
+        strides = [0] * (len(new_shape) - len(self.shape)) + list(self.shape)
+        for i in range(len(new_shape) - len(self.shape), len(new_shape)):
+            if (strides[i] != new_shape[i] and strides[i] != 1):
+                raise ValueError("new_shape's elements must be the \
                                                     same as the original shape, except for dimensions in the self where \
                                                     the size = 1")
-          else:
-            strides[i] = 0 if strides[i]==1 else prod(strides[i+1:])
+            else:
+                strides[i] = 0 if strides[i] == 1 else prod(strides[i + 1:])
         return NDArray.make(
             new_shape, strides=tuple(strides), device=self.device, handle=self._handle, offset=self._offset
         )
@@ -533,7 +552,7 @@ class NDArray:
 
         # if the matrix is aligned, use tiled matrix multiplication
         if hasattr(self.device, "matmul_tiled") and all(
-            d % self.device.__tile_size__ == 0 for d in (m, n, p)
+                d % self.device.__tile_size__ == 0 for d in (m, n, p)
         ):
 
             def tile(a, tile):
@@ -598,7 +617,6 @@ class NDArray:
         self.device.reduce_max(view.compact()._handle, out._handle, view.shape[-1])
         return out
 
-
     def flip(self, axes):
         """
         Flip this ndarray along the specified axes.
@@ -607,7 +625,6 @@ class NDArray:
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
-
 
     def pad(self, axes):
         """
@@ -618,7 +635,6 @@ class NDArray:
         ### BEGIN YOUR SOLUTION
         raise NotImplementedError()
         ### END YOUR SOLUTION
-
 
 
 def array(a, dtype="float32", device=None):
@@ -646,6 +662,10 @@ def reshape(array, new_shape):
     return array.reshape(new_shape)
 
 
+def transpose(array, new_axes=None):
+    return array.transpose(new_axes)
+
+
 def maximum(a, b):
     return a.maximum(b)
 
@@ -661,11 +681,40 @@ def exp(a):
 def tanh(a):
     return a.tanh()
 
+
 def flip(a, axes):
     return a.flip(axes)
+
 
 def max(a, axis=None, keepdims=False):
     return a.max(axis=axis, keepdims=keepdims)
 
+
 def summation(a, axis=None, keepdims=False):
     return a.sum(axis=axis, keepdims=keepdims)
+
+
+def stack(args, axis=None):
+    assert isinstance(args, tuple)
+    n = len(args)
+    device = args[0].device
+    out_shape = [n] + list(args[0].shape)
+    out = NDArray.make(out_shape, device=device)
+    device.stack(tuple(arg.compact()._handle for arg in args), args[0].size, out._handle)
+    axes = list(range(1, out.ndim))
+    axes.insert(axis, 0)
+    return out.permute(axes)
+
+
+def split(A, axis=0):
+    assert isinstance(A, NDArray)
+    device = A.device
+    out_shape = list(A.shape)
+    n = out_shape.pop(axis)
+    out = list(NDArray.make(out_shape, device=device) for i in range(n))
+    axes = list(range(A.ndim))
+    axes.pop(axis)
+    axes.insert(0, axis)
+    A = A.compact().permute(axes)
+    device.split(A.compact()._handle, out[0].size, tuple(o._handle for o in out))
+    return tuple(out)
