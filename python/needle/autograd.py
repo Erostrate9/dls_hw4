@@ -363,6 +363,9 @@ class Tensor(Value):
     def split(self, axis = 0):
         return needle.ops.Split(axis)(self)
 
+    def flip(self, axes):
+        return needle.ops.Flip(axes)(self)
+
     __radd__ = __add__
     __rmul__ = __mul__
     __rmatmul__ = __matmul__

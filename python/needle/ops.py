@@ -278,7 +278,8 @@ class Summation(TensorOp):
             out_shape[self.axes] = 1
         else:
             for axis in self.axes:
-                out_shape[axis] = 1
+                if axis < len(out_shape):
+                    out_shape[axis] = 1
         return out_grad.reshape(out_shape).broadcast_to(in_shape)
         ### END YOUR SOLUTION
 
@@ -526,12 +527,12 @@ class Flip(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return array_api.flip(a, self.axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return flip(out_grad, self.axes)
         ### END YOUR SOLUTION
 
 
@@ -546,12 +547,22 @@ class Dilate(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = list(a.shape)
+        for axis in self.axes:
+            if axis < a.ndim:
+                new_shape[axis] *= (self.dilation+1)
+        out = array_api.full(tuple(new_shape), 0, dtype=a.dtype, device=a.device)
+        sl = [slice(None)] * a.ndim
+        for axis in self.axes:
+            if axis < a.ndim:
+                sl[axis] = slice(0, new_shape[axis], self.dilation+1)
+        out[tuple(sl)] = a
+        return out
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return undilate(out_grad, self.axes, self.dilation)
         ### END YOUR SOLUTION
 
 
@@ -566,12 +577,16 @@ class UnDilate(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        sl = [slice(None)] * a.ndim
+        for axis in self.axes:
+            if axis < a.ndim:
+                sl[axis] = slice(0, a.shape[axis], self.dilation+1)
+        return a[tuple(sl)]
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return dilate(out_grad, self.axes, self.dilation)
         ### END YOUR SOLUTION
 
 

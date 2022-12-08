@@ -623,7 +623,14 @@ class NDArray:
         Note: compact() before returning.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        offset = self._offset
+        strides = list(self.strides)
+        for axis in axes:
+            strides[axis] = - self.strides[axis]
+            offset += (self.shape[axis]-1) * self.strides[axis]
+        return NDArray.make(
+            shape=self.shape, strides=tuple(strides), device=self.device, handle=self._handle, offset=offset
+        ).compact()
         ### END YOUR SOLUTION
 
     def pad(self, axes):
@@ -633,7 +640,15 @@ class NDArray:
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert isinstance(axes, (list, tuple)) and isinstance(axes[0], (list, tuple)) and \
+               len(axes) == len(self.shape) and len(axes[0]) == 2
+        new_shape = list(self.shape)
+        for axis, padding in enumerate(axes):
+            new_shape[axis] += padding[0] + padding[1]
+        out = NDArray.make(shape=new_shape, device=self.device)
+        out.fill(0)
+        out[tuple(slice(padding[0], padding[0] + offset) for padding, offset in zip(axes, self.shape))] = self
+        return out.compact()
         ### END YOUR SOLUTION
 
 
@@ -718,3 +733,10 @@ def split(A, axis=0):
     A = A.compact().permute(axes)
     device.split(A.compact()._handle, out[0].size, tuple(o._handle for o in out))
     return tuple(out)
+
+
+def pad(A, axes):
+    return A.pad(axes)
+
+def flip(A, axes):
+    return A.flip(axes)
