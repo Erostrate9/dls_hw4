@@ -248,9 +248,20 @@ class NDArray:
 
         ### BEGIN YOUR SOLUTION
         # using new_shape to compute the corresponding strides
+
+        if not self.is_compact():
+            raise ValueError("NDArray to be reshaped is not compact")
+        if new_shape.count(-1) > 1:
+            raise ValueError("can only specify one unknown dimension")
+        new_shape = list(new_shape)
+        if -1 in new_shape:
+            idx = new_shape.index(-1)
+            new_shape[idx] = self.size // prod(new_shape[:idx]+new_shape[idx+1:])
+        if prod(self._shape) != prod(new_shape):
+            raise ValueError("shape is not consistent")
         strides = tuple(prod(new_shape[i + 1:]) for i in range(len(new_shape)))
         return NDArray.make(
-            new_shape, strides=strides, device=self.device, handle=self._handle, offset=self._offset
+            tuple(new_shape), strides=strides, device=self.device, handle=self._handle, offset=self._offset
         )
         ### END YOUR SOLUTION
 

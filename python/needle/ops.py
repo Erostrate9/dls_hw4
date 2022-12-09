@@ -439,7 +439,7 @@ class LogSumExp(TensorOp):
         input -= Z_max.broadcast_to(input.shape)
         expz = array_api.exp(input)
         return out_grad / Tensor(expz.sum(self.axes, keepdims=True).broadcast_to(input.shape) / expz,
-                          device=out_grad.device)
+                                 device=out_grad.device)
         ### END YOUR SOLUTION
 
 
@@ -550,12 +550,12 @@ class Dilate(TensorOp):
         new_shape = list(a.shape)
         for axis in self.axes:
             if axis < a.ndim:
-                new_shape[axis] *= (self.dilation+1)
+                new_shape[axis] *= (self.dilation + 1)
         out = array_api.full(tuple(new_shape), 0, dtype=a.dtype, device=a.device)
         sl = [slice(None)] * a.ndim
         for axis in self.axes:
             if axis < a.ndim:
-                sl[axis] = slice(0, new_shape[axis], self.dilation+1)
+                sl[axis] = slice(0, new_shape[axis], self.dilation + 1)
         out[tuple(sl)] = a
         return out
         ### END YOUR SOLUTION
@@ -580,7 +580,7 @@ class UnDilate(TensorOp):
         sl = [slice(None)] * a.ndim
         for axis in self.axes:
             if axis < a.ndim:
-                sl[axis] = slice(0, a.shape[axis], self.dilation+1)
+                sl[axis] = slice(0, a.shape[axis], self.dilation + 1)
         return a[tuple(sl)]
         ### END YOUR SOLUTION
 
@@ -596,22 +596,62 @@ def undilate(a, axes, dilation):
 
 class Conv(TensorOp):
     def __init__(self, stride: Optional[int] = 1, padding: Optional[int] = 0):
+        """
+        im2col method for convolution
+        stride: 1 as default
+        padding: padding applied to the spatial dimensions (i.e., axes 1 and 2), 0 as default
+        """
         self.stride = stride
         self.padding = padding
 
-    def compute(self, A, B):
+    def compute(self, Z, weight):
+        """
+        Compute im2col on Z with weight as its kernel.
+        Parameters:
+        Z - N * H * W * C_in NDArray
+        W - K * K * C_in * C_out NDArray
+        """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # padding
+        Z = Z.pad(((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0)))
+        # im2col
+        N, H, W, C_in = Z.shape
+        K, _, _, C_out = weight.shape
+        Ns, Hs, Ws, Cs = Z.strides
+
+        inner_dim = K * K * C_in
+        new_H = (H - K) // self.stride + 1
+        new_W = (W - K) // self.stride + 1
+        Z_ = Z.as_strided(shape=(N, new_H, new_W, K, K, C_in),
+                          strides=(Ns, Hs * self.stride, Ws * self.stride, Hs, Ws, Cs)).compact() \
+              .reshape((-1, inner_dim))
+        out = Z_ @ weight.reshape((-1, C_out))
+        return out.reshape((N, new_H, new_W, C_out))
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # Z_grad    (N, H, W, C_in)
+        # weight_grad    (K, K, C_in, C_out)
+        # out_grad   (N, (H-K+2P)//S+1, (W-K+2P)//S+1, C_out)
+
+        Z, weight = node.inputs
+        N, H, W, C_in, C_out = Z.shape
+        K, _, _, C_out = weight.shape
+
+        # X.grad = out_grad @ W.transpose
+        # W.grad = X.transpose @ out_grad
+        # X.grad = ≈conv(≈out_grad, ≈W)
+        # W.grad = ≈conv(≈X, ≈out_grad)
+        # the transpose of a convolution can be found by simply flipping the kernel.
+        weight = weight.flip((0, 1)).transpose()
+        # (newH - K) + 1 + 2x == H  => x = (H - 1 + K - ((H-K)// self.stride + 1)) // 2
+
+        if self.stride > 1:
+            out_grad.dilate((1, 2), self.stride-1)
+        return Z_grad, weight_grad
         ### END YOUR SOLUTION
 
 
 def conv(a, b, stride=1, padding=1):
     return Conv(stride, padding)(a, b)
-
-
-
