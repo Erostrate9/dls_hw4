@@ -365,6 +365,12 @@ class Tensor(Value):
 
     def flip(self, axes):
         return needle.ops.Flip(axes)(self)
+    
+    def dilate(self, axes, dilation):
+        return needle.ops.Dilate(axes, dilation)(self)
+    
+    def undilate(self, axes, dilation):
+        return needle.ops.Undilate(axes, dilation)(self)
 
     __radd__ = __add__
     __rmul__ = __mul__

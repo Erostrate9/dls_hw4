@@ -89,7 +89,8 @@ def kaiming_uniform(fan_in, fan_out, shape=None, nonlinearity="relu", **kwargs):
     if 'gain' in kwargs:
       gain = kwargs['gain']
     bound = gain*(3/fan_in)**0.5
-    return rand(fan_in, fan_out, low=-bound, high = bound)
+    shape = shape if shape else (fan_in, fan_out)
+    return rand(*shape, low=-bound, high = bound, **kwargs)
     ### END YOUR SOLUTION
 
 
@@ -100,5 +101,6 @@ def kaiming_normal(fan_in, fan_out, shape=None, nonlinearity="relu", **kwargs):
     if 'gain' in kwargs:
       gain = kwargs['gain']
     std = gain / fan_in**0.5
-    return randn(fan_in, fan_out, mean=0, std=std)
+    shape = shape if shape else (fan_in, fan_out)
+    return randn(*shape, mean=0, std=std, **kwargs)
     ### END YOUR SOLUTION

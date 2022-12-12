@@ -248,8 +248,10 @@ class NDArray:
 
         ### BEGIN YOUR SOLUTION
         # using new_shape to compute the corresponding strides
-
+        self
         if not self.is_compact():
+            print(self._strides, self.compact_strides(self._shape))
+            print(prod(self.shape), self._handle.size)
             raise ValueError("NDArray to be reshaped is not compact")
         if new_shape.count(-1) > 1:
             raise ValueError("can only specify one unknown dimension")
@@ -293,7 +295,8 @@ class NDArray:
         strides = tuple(self.strides[i] for i in new_axes)
 
         return NDArray.make(
-            shape, strides=strides, device=self.device, handle=self._handle, offset=self._offset
+            shape, strides=strides, device=self.device, handle=self._handle, 
+            offset=self._offset
         )
         ### END YOUR SOLUTION
 
@@ -716,8 +719,22 @@ def max(a, axis=None, keepdims=False):
     return a.max(axis=axis, keepdims=keepdims)
 
 
-def summation(a, axis=None, keepdims=False):
-    return a.sum(axis=axis, keepdims=keepdims)
+def summation(a, axes=None, keepdims=False):
+    return sum(axes=axes, keepdims=keepdims)
+
+def sum(a, axes=None, keepdims=False):
+    assert isinstance(axes, tuple)
+    if len(axes) == 1:
+        return a.sum(axes, keepdims=keepdims)
+    elif len(axes) == a.ndim:
+        return a.sum(None)
+    else:
+        for i, axis in enumerate(axes):
+            if keepdims:
+              a = a.sum(axis, keepdims=True)
+            else:
+              a = a.sum(axis - i, keepdims=False)
+    return a
 
 
 def stack(args, axis=None):

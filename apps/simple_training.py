@@ -5,6 +5,7 @@ import needle.nn as nn
 from needle import backend_ndarray as nd
 from models import *
 import time
+import numpy as np
 
 device = ndl.cpu()
 
@@ -29,7 +30,30 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is None:
+        model.eval()
+    else:
+        model.train()
+    iteration = 0
+    total_loss = 0
+    total_examples = len(dataloader.dataset)
+    total_corrects = 0
+    for X, y in dataloader:
+        iteration += 1
+        # f = nn.Flatten()
+        # X = f(X)
+        logits = model(X)
+        loss = loss_fn(logits, y)
+        total_loss += loss
+        y_hat = np.argmax(logits.numpy, axis=1)
+        total_corrects += np.sum(y_hat == y.numpy())
+        if opt:
+            opt.reset_grad()
+            loss.backward()
+            opt.step()
+    avg_loss = total_loss.numpy() / iteration
+    avg_acc = total_corrects / total_examples
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 
@@ -53,7 +77,11 @@ def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    opt = optimizer(params=model.parameters(), lr=lr, weight_decay=weight_decay)
+    for i in range(n_epochs):
+        avg_acc, avg_loss = epoch_general_cifar10(dataloader, model,
+          loss_fn=loss_fn, opt=opt)
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 
@@ -72,7 +100,9 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    avg_acc, avg_loss = epoch_general_cifar10(dataloader, model,
+        loss_fn=loss_fn, opt=None)
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
 

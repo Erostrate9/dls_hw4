@@ -353,7 +353,6 @@ def test_nn_conv_forward(s, cin, cout, k, stride, device):
     g.weight.data = torch.tensor(f.weight.cached_data.numpy().transpose(3, 2, 0, 1))
     g.bias.data = torch.tensor(f.bias.cached_data.numpy())
     z = torch.tensor(x.cached_data.numpy())
-
     assert np.linalg.norm(f(x).cached_data.numpy() - g(z).data.numpy()) < 1e-3
 
 

@@ -191,11 +191,13 @@ class Transpose(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
         axes = list(range(len(a.shape)))
-        if (self.axes is None):
+        if self.axes is None:
             axes[-1], axes[-2] = axes[-2], axes[-1]
         else:
-            axes[self.axes[0]], axes[self.axes[1]] = axes[self.axes[1]], axes[self.axes[0]]
-        return a.transpose(axes)
+            axis1 = self.axes[0]
+            axis2 = self.axes[1]
+            axes[axis1], axes[axis2] = axes[axis2], axes[axis1]
+        return a.permute(tuple(axes))
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -214,7 +216,7 @@ class Reshape(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return a.reshape(self.shape)
+        return array_api.reshape(a.compact(), self.shape)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -265,7 +267,12 @@ class Summation(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return a.sum(axis=self.axes)
+        if isinstance(self.axes, (tuple, list)):
+            for i in self.axes:
+                a = a.sum(i)
+            return a
+        else:
+            return a.sum(self.axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -527,7 +534,7 @@ class Flip(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.flip(a, self.axes)
+        return array_api.flip(a, self.axes).compact()
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -612,6 +619,8 @@ class Conv(TensorOp):
         W - K * K * C_in * C_out NDArray
         """
         ### BEGIN YOUR SOLUTION
+        # Z = Z.compact()
+        weight = weight.compact()
         # padding
         Z = Z.pad(((0, 0), (self.padding, self.padding), (self.padding, self.padding), (0, 0)))
         # im2col
@@ -636,7 +645,6 @@ class Conv(TensorOp):
         # out_grad   (N, (H-K+2P)//S+1, (W-K+2P)//S+1, C_out)
 
         Z, weight = node.inputs
-        N, H, W, C_in, C_out = Z.shape
         K, _, _, C_out = weight.shape
 
         # X.grad = out_grad @ W.transpose
@@ -644,11 +652,24 @@ class Conv(TensorOp):
         # X.grad = ≈conv(≈out_grad, ≈W)
         # W.grad = ≈conv(≈X, ≈out_grad)
         # the transpose of a convolution can be found by simply flipping the kernel.
-        weight = weight.flip((0, 1)).transpose()
-        # (newH - K) + 1 + 2x == H  => x = (H - 1 + K - ((H-K)// self.stride + 1)) // 2
-
+        weight = weight.flip((0, 1)).transpose((2,3))
+        # stride
         if self.stride > 1:
-            out_grad.dilate((1, 2), self.stride-1)
+            out_grad = out_grad.dilate((1, 2), self.stride-1)
+        # (N, newH, newW, C_out) =>  (N, H, W, C_out)
+        # (H-K+2P) + 1 - K + 2x + 1 == H
+        # => x = K - P -1
+        Z_grad = conv(out_grad, weight, 1, K - self.padding - 1)
+
+        # (N, H, W, C_in) (N, (H-K+2P)//S+1, (W-K+2P)//S+1, C_out)
+        # (K, K, C_in, C_out)
+        # (C_in, W, H, N) conv (newW, newH, N, C_out) => (C_in, K, K, C_out)
+        out_grad = out_grad.transpose((0,2))
+        Z = Z.transpose((0,3)).transpose((1,2))
+        # H  - (H-K+2P+1) + 2x +1 == K
+        # => x = P
+        weight_grad = conv(Z, out_grad, 1, self.padding)
+        weight_grad = weight_grad.transpose((0,2))
         return Z_grad, weight_grad
         ### END YOUR SOLUTION
 
