@@ -103,8 +103,11 @@ class DataLoader:
         dataset: Dataset,
         batch_size: Optional[int] = 1,
         shuffle: bool = False,
+        dtype = "float32",
+        device = nd.cpu()
     ):
-
+        self.dtype = dtype
+        self.device = device
         self.dataset = dataset
         self.shuffle = shuffle
         self.batch_size = batch_size
@@ -136,7 +139,7 @@ class DataLoader:
             for i, data in enumerate(b):
                 result[i].append(data[0] if len(data.shape) == 1 and data.shape[0] == 1 else data)
         self.batch_idx += 1
-        return tuple([Tensor(np.array(l), require_grad=False) for l in result])
+        return tuple([Tensor(np.array(l), require_grad=False, device=self.device, dtype=self.dtype) for l in result])
         ### END YOUR SOLUTION
 
 
