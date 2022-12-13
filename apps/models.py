@@ -1,9 +1,11 @@
 import sys
+
 sys.path.append('./python')
 import needle as ndl
 import needle.nn as nn
 import math
 import numpy as np
+
 np.random.seed(0)
 
 
@@ -11,30 +13,30 @@ class ResNet9(ndl.nn.Module):
     def __init__(self, device=None, dtype="float32"):
         super().__init__()
         ### BEGIN YOUR SOLUTION ###
-        self.device=device
-        self.dtype=dtype
+        self.device = device
+        self.dtype = dtype
         self.resnet9 = nn.Sequential(
-          nn.ConvBN(3,16,7,4,device=device, dtype=dtype),
-          nn.ConvBN(16,32,3,2,device=device, dtype=dtype),
-          nn.Residual(
-            nn.Sequential(
-              nn.ConvBN(32,32,3,1,device=device, dtype=dtype),
-              nn.ConvBN(32,32,3,1,device=device, dtype=dtype),
-            )
-          ),
-          nn.ConvBN(32,64,3,2,device=device, dtype=dtype),
-          nn.ConvBN(64,128,3,2,device=device, dtype=dtype),
-          nn.Residual(
-            nn.Sequential(
-              nn.ConvBN(128,128,3,1,device=device, dtype=dtype),
-              nn.ConvBN(128,128,3,1,device=device, dtype=dtype),
-            )
-          ),
-          nn.Flatten(),
-          nn.Linear(128,128,device=device,dtype=dtype),
-          nn.ReLU(),
-          nn.Flatten(),
-          nn.Linear(128,10,device=device,dtype=dtype)
+            nn.ConvBN(3, 16, 7, 4, device=device, dtype=dtype),
+            nn.ConvBN(16, 32, 3, 2, device=device, dtype=dtype),
+            nn.Residual(
+                nn.Sequential(
+                    nn.ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
+                    nn.ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
+                )
+            ),
+            nn.ConvBN(32, 64, 3, 2, device=device, dtype=dtype),
+            nn.ConvBN(64, 128, 3, 2, device=device, dtype=dtype),
+            nn.Residual(
+                nn.Sequential(
+                    nn.ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
+                    nn.ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
+                )
+            ),
+            nn.Flatten(),
+            nn.Linear(128, 128, device=device, dtype=dtype),
+            nn.ReLU(),
+            nn.Flatten(),
+            nn.Linear(128, 10, device=device, dtype=dtype)
         )
         ### END YOUR SOLUTION
 
@@ -59,7 +61,19 @@ class LanguageModel(nn.Module):
         """
         super(LanguageModel, self).__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.embedding_size = embedding_size
+        self.output_size = output_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.device = device
+        self.dtype = dtype
+        self.seq_model = seq_model
+        self.embedding = nn.Embedding(output_size, embedding_size, device=device, dtype="float32")
+        self.seq = nn.LSTM(embedding_size, hidden_size, num_layers=num_layers, device=device,
+                             dtype="float32") if seq_model == "lstm" else nn.RNN(embedding_size, hidden_size,
+                                                                                 num_layers=num_layers, device=device,
+                                                                                 dtype="float32")
+        self.linear = nn.Linear(hidden_size, output_size, device=device, dtype=dtype)
         ### END YOUR SOLUTION
 
     def forward(self, x, h=None):
@@ -76,7 +90,10 @@ class LanguageModel(nn.Module):
             else h is tuple of (h0, c0), each of shape (num_layers, bs, hidden_size)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        X = self.embedding(x)
+        out, h = self.seq(X, h)
+        out = self.linear(out.reshape((out.shape[0]*out.shape[1], out.shape[2])))
+        return out, h
         ### END YOUR SOLUTION
 
 

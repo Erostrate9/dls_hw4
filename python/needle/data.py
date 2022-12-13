@@ -316,7 +316,10 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+            self.word2idx[word] = len(self.idx2word)
+            self.idx2word.append(word)
+        return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -324,7 +327,7 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.idx2word)
         ### END YOUR SOLUTION
 
 
@@ -351,7 +354,15 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        import re
+        with open(path, 'r') as f:
+            lines = f.readlines()
+        if max_lines and len(lines)>max_lines:
+            lines = lines[:max_lines]
+        # return [re.sub('[^A-Za-z]+', ' ', line).strip().lower() for line in lines]
+        lines = [line+'<eos>' for line in lines]
+        ids = [self.dictionary.add_word(word) for line in lines for word in line.split()]
+        return ids
         ### END YOUR SOLUTION
 
 
@@ -366,13 +377,18 @@ def batchify(data, batch_size, device, dtype):
     │ e k q w │
     └ f l r x ┘.
     These columns are treated as independent by the model, which means that the
-    dependence of e. g. 'g' on 'f' cannot be learned, but allows more efficient
+    dependence of e.g. 'g' on 'f' cannot be learned, but allows more efficient
     batch processing.
     If the data cannot be evenly divided by the batch size, trim off the remainder.
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # data: a list of ids
+    assert len(data)>=batch_size
+    if len(data)%batch_size>0:
+        end = len(data)-(len(data)%batch_size)
+        data = data[:end]
+    return np.array(data).reshape((batch_size, -1)).transpose()
     ### END YOUR SOLUTION
 
 
@@ -396,5 +412,9 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    nbatch, bs = batches.shape
+    seq_len = min(bptt, nbatch-1-i)
+    data = Tensor(batches[i:i+seq_len, :], device=device, dtype=dtype)
+    target = Tensor(batches[i+1:i+1+seq_len, :].reshape(seq_len*bs), device=device, dtype=dtype)
+    return data, target
     ### END YOUR SOLUTION

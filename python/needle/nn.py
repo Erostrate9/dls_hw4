@@ -635,8 +635,10 @@ class LSTM(Module):
         """
         ### BEGIN YOUR SOLUTION
         seq_len, bs, input_size = X.shape
-        h_0, c_0 = (h[0], h[1]) if h is not None else (init.zeros(self.num_layers, bs, self.hidden_size, device=self.device, dtype=self.dtype),
-                                                     init.zeros(self.num_layers, bs, self.hidden_size, device=self.device, dtype=self.dtype))
+        h_0, c_0 = (h[0], h[1]) if h is not None else (
+                init.zeros(self.num_layers, bs, self.hidden_size, device=self.device, dtype=self.dtype),
+                init.zeros(self.num_layers, bs, self.hidden_size, device=self.device, dtype=self.dtype)
+        )
         num_layers, bs, hidden_size = h_0.shape
         assert hidden_size == self.hidden_size and num_layers == self.num_layers and input_size == self.input_size
         X = ops.split(X, 0)  # TensorTuple
@@ -680,7 +682,11 @@ class Embedding(Module):
             initialized from N(0, 1).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.device = device
+        self.dtype = dtype
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.weight = Parameter(init.randn(num_embeddings, embedding_dim, mean=0.0, std=1.0, device=device, dtype=dtype))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
@@ -694,5 +700,10 @@ class Embedding(Module):
         output of shape (seq_len, bs, embedding_dim)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # (seq_len, bs, num_embeddings)
+        one_hot = init.one_hot(self.num_embeddings, x, device=self.device, dtype=self.dtype)
+        seq_len, bs, num_embeddings = one_hot.shape
+        one_hot = one_hot.reshape((seq_len*bs, num_embeddings))
+        # (seq_len, bs, num_embeddings) @ (num_embeddings, embedding_dim)
+        return (one_hot @ self.weight).reshape((seq_len, bs, self.embedding_dim))
         ### END YOUR SOLUTION
