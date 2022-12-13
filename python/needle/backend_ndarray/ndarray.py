@@ -248,10 +248,9 @@ class NDArray:
 
         ### BEGIN YOUR SOLUTION
         # using new_shape to compute the corresponding strides
-        self
         if not self.is_compact():
-            print(self._strides, self.compact_strides(self._shape))
-            print(prod(self.shape), self._handle.size)
+            # print(self._strides, self.compact_strides(self._shape))
+            # print(prod(self.shape), self._handle.size)
             raise ValueError("NDArray to be reshaped is not compact")
         if new_shape.count(-1) > 1:
             raise ValueError("can only specify one unknown dimension")

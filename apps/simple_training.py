@@ -36,7 +36,6 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
         model.eval()
     else:
         model.train()
-
     total_loss = 0
     total_examples = len(dataloader.dataset)
     total_corrects = 0
@@ -44,7 +43,7 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     for X, y in dataloader:
         logits = model(X)
         loss = loss_fn(logits, y)
-        total_loss += loss.detach().numpy()
+        total_loss += loss.detach().numpy() * y.shape[0]
         y_hat = np.argmax(logits.detach().numpy(), axis=1)
         total_corrects += np.sum(y_hat == y.numpy())
         if opt:
@@ -77,7 +76,10 @@ def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    opt = optimizer(params=model.parameters(), lr=lr, weight_decay=weight_decay)
+    if optimizer == ndl.optim.SGD:
+        opt = optimizer(params=model.parameters(), lr=lr, momentum=0.875, weight_decay=weight_decay)
+    else:
+        opt = optimizer(params=model.parameters(), lr=lr, weight_decay=weight_decay)
     for i in range(n_epochs):
         start_time = time.time()
         avg_acc, avg_loss = epoch_general_cifar10(dataloader, model,
